@@ -1,6 +1,7 @@
-# arXiv-2511.17424
-The Effects of Latency on a Progressive Second-Price Auction
-------------------------------------------------------------
+Version jauction-41 is the last with the twoauct.jl code that didn't
+implement quite the correct allocations between multiple sellers but
+worked almost correctly.  Those results were not used in the thesis
+or the any paper and have been deleted for version 42.
 
 This is a list of options and default values for the oneauct.conf
 configuration file:
