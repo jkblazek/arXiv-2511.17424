@@ -72,17 +72,12 @@ end
 @isdefined(gN) || const gN=10
 @isdefined(gM) || const gM=0
 
-const EV_THINK=1
-const EV_BID=2
-const EV_SUPPLY=3
-
 mutable struct Node
-	t::Float64   # event time
-	t0::Float64  # time sent / last update
-	i::Int       # buyer index for buyer events, 0 for supply
+	t::Float64   # time to receive
+	t0::Float64  # time sent
+	i::Int       # from buyer i
 	q::Float64   # quantity
 	p::Float64   # marginal value
-	kind::Int    # EV_THINK, EV_BID, or EV_SUPPLY
 end
 mutable struct Buyer
 	theta::Function
@@ -122,7 +117,6 @@ mutable struct Market
 	Qper::Float64       # oscillation period in simulation time units (0 disables)
 	Qphase::Float64     # phase shift (radians)
 	Qmin::Float64       # absolute minimum supply clamp
-	Qdt::Float64        # supply sampling interval (<=0 disables supply events)
 	Tend::Float64       # time horizon for non-convergent runs (<=0 uses convergence stop)
 	epsilon::Float64
 	twins::Float64      # are we twinning
@@ -136,14 +130,11 @@ mutable struct Market
 	clambda::Float64
 	cshape::Float64
 	traji::Array{Int}
-
-    Market(N::Int=gN) = new(
-        zeros(N), zeros(N), zeros(N),
-        100.0, 100.0, 0.0, 0.0, 0.0, 0.0, 0.0, -1.0,
-        5.0, 0.0, 0, 0, 0.0,
-        1.0, 0.25, 1.5, 0.1, 1.0, 0.75,
-        zeros(Int,0)
-    )
+	Market(N::Int=gN)=new(zeros(N),zeros(N),zeros(N),
+		100.0,100.0,0.0,0.0,0.0,0.0,-1.0,   # Q,Qbase,Qamp,Qper,Qphase,Qmin,Tend
+		5.0,0.0,0,0,0.0,                    # epsilon,twins,mcount,bcount,etime
+		1.0,0.25,1.5, 0.1,1.0,0.75,
+		zeros(Int,0))
 end
 
 
@@ -496,20 +487,7 @@ function getbidi(i::Int,player::Player,market::Market)
 	end
 end
 
-function logstate(io::IO,t::Float64,player::Player,market::Market)
-	@printf(io,"%g %g",t,market.Q)
-	for k in market.traji
-		mya=ai(k,market)
-		myv=player.x[k].theta(mya)
-		myc=ci(k,player,market)
-		myu=myv-myc
-		@printf(io," %g %g %g %g",mya,myv,myc,myu)
-	end
-	@printf(io,"\n"); flush(io)
-end
-
-function sendbid(v::Node,player::Player,market::Market)
-    i=v.i
+function sendbid(i::Int,player::Player,market::Market)
 	N=length(player.x); T2=N÷2+1
 	q,p=getbidi(i,player,market)
 	if q>0 
@@ -522,19 +500,25 @@ function sendbid(v::Node,player::Player,market::Market)
 			dt*=market.twins
 		end
 		ct=v.t0+dt
-        #enc(Node(ct,v.t0,i,q,p,EV_BID))
-		#return Node(ct,v.t0,i,q,p,EV_BID) #t0 is the snapshot time
-        player.x[i].t0=v.t
-        return Node(ct,v.t,i,q,p,EV_BID) #t is the bid time
+		enc(Node(ct,v.t0,i,q,p))
+		return 1
 	end
 	return 0
 end
 
-function receivebid(v::Node,player::Player,market::Market)
-    i=v.i
+function receivebid(i::Int,player::Player,market::Market)
 	if market.t0[i]<=v.t0
 		market.t0[i]=v.t0      # bid at t0 is now active
 		market.q[i]=v.q; market.p[i]=v.p
+		if length(market.traji)>0
+			@printf(trajfp,"%g",v.t)
+			for k in market.traji
+				myvk=player.x[k].theta(ai(k,market))
+				myck=ci(k,player,market)
+				@printf(trajfp," %g %g",myvk,myck)
+			end
+			@printf(trajfp,"\n"); flush(trajfp)
+		end
 	end
 end
 
@@ -543,9 +527,9 @@ function queueconv(player::Player,market::Market,e::Int)
 	if length(market.traji)>0
 		mkpath("time")
 		trajfp=open(@sprintf("time/traj%03d.dat",e),"w")
-		@printf(trajfp,"#t Q")
+		@printf(trajfp,"#t")
 		for k in market.traji
-			@printf(trajfp," a%d v%d c%d u%d",k,k,k,k)
+			@printf(trajfp," v%d c%d",k,k)
 		end
 		@printf(trajfp,"\n"); flush(trajfp)
 	end
@@ -560,7 +544,7 @@ function queueconv(player::Player,market::Market,e::Int)
 			if market.twins>0&&i>T2
 				t*=market.twins
 			end
-			enc(Node(t,0.0,i,0.0,0.0,EV_THINK))
+			enc(Node(t,0.0,i,0.0,0.0))
 		end
 	else
 		for i=2:N
@@ -569,19 +553,15 @@ function queueconv(player::Player,market::Market,e::Int)
 			if market.twins>0&&i>T2
 				t*=market.twins
 			end
-			enc(Node(t,0.0,i,0.0,0.0,EV_THINK))
+			enc(Node(t,0.0,i,0.0,0.0))
 		end
 	end
 	reply=ones(Int,N); reply[1]=0
 	while length(enc.heap)>0
 		v=deq()
-		if v.kind==EV_THINK
+		if v.q==0.0
 			v.t0=v.t
-            w=sendbid(v,player,market)
-            if w!==0
-                enc(w)
-			    bidflying+=1
-            end
+			bidflying+=sendbid(v.i,player,market)
 			if bidflying==0
 				reply[v.i]=0
 			end
@@ -593,17 +573,8 @@ function queueconv(player::Player,market::Market,e::Int)
 			enc(v)
 		else
 			bidflying-=1
-			receivebid(v,player,market)
-            if length(market.traji)>0
-                @printf(trajfp,"%g",v.t)
-                for k in market.traji
-                    myvk=player.x[k].theta(ai(k,market))
-                    myck=ci(k,player,market)
-                    @printf(trajfp," %g %g",myvk,myck)
-                end
-                @printf(trajfp,"\n"); flush(trajfp)
-            end
-            v.t0=v.t
+			receivebid(v.i,player,market)
+			v.t0=v.t
 			for i=2:N
 				reply[i]=1
 			end
@@ -641,72 +612,55 @@ function queueavg(player::Player,market::Market,e::Int)
 	if length(market.traji)>0
 		mkpath("time")
 		trajfp=open(@sprintf("time/traj%03d.dat",e),"w")
-		@printf(trajfp,"#t Q")
+		@printf(trajfp,"#t")
 		for k in market.traji
-			@printf(trajfp," a%d v%d c%d u%d",k,k,k,k)
+			@printf(trajfp," v%d c%d",k,k)
+		end
+		if market.Qamp != 0.0 && market.Qper != 0.0
+			mkpath("time")
+			supplyfp=open(@sprintf("time/supply%03d.dat",e),"w")
+			@printf(supplyfp,"#t Q\n"); flush(supplyfp)
 		end
 		@printf(trajfp,"\n"); flush(trajfp)
-	end
-	if market.Qdt>0.0
-		mkpath("time")
-		supplyfp=open(@sprintf("time/supply%03d.dat",e),"w")
-		@printf(supplyfp,"#t Q\n"); flush(supplyfp)
 	end
 	enc,deq=mkpriority()
 	N=length(player.x); T2=N÷2+1
 	d=market.blambda
 	market.bcount=0; market.mcount=0
+	bidflying=0
 	if d>0
 		for i=2:N
 			t=market.bdelay+rweibull(d,market.bshape)
 			if market.twins>0&&i>T2
 				t*=market.twins
 			end
-			enc(Node(t,0.0,i,0.0,0.0,EV_THINK))
-        end
+			enc(Node(t,0.0,i,0.0,0.0))
+		end
 	else
 		for i=2:N
 			weibull(d,market.bshape)
 			t=market.bdelay*(1.0+(i-1)/N)
 			if market.twins>0&&i>T2
 				t*=market.twins
-            end
-			enc(Node(t,0.0,i,0.0,0.0,EV_THINK))
-        end
-	end
-	if market.Qdt>0.0
-		update_supply!(player,market,0.0)
-		enc(Node(market.Qdt,0.0,0,0.0,0.0,EV_SUPPLY))
-		if trajfp !== nothing
-			logstate(trajfp,0.0,player,market)
-		end
-		if supplyfp !== nothing
-			@printf(supplyfp,"%g %g\n",0.0,market.Q); flush(supplyfp)
+			end
+			enc(Node(t,0.0,i,0.0,0.0))
 		end
 	end
-	lastt=0.0
+	reply=ones(Int,N); reply[1]=0
 	while length(enc.heap)>0
 		v=deq()
-		lastt=v.t
-		if market.Tend>0.0 && v.t>market.Tend
-			market.etime=market.Tend
-			break
+		# Update supply at the current event time (for oscillatory experiments).
+		update_supply!(player, market, v.t)
+		if supplyfp !== nothing
+			@printf(supplyfp, "%g %g
+", v.t, market.Q); flush(supplyfp)
 		end
-		if v.kind==EV_SUPPLY
-			update_supply!(player,market,v.t)
-			if supplyfp !== nothing
-				@printf(supplyfp,"%g %g\n",v.t,market.Q); flush(supplyfp)
-			end
-			if trajfp !== nothing
-				logstate(trajfp,v.t,player,market)
-			end
-			enc(Node(v.t+market.Qdt,v.t,0,0.0,0.0,EV_SUPPLY))
-		elseif v.kind==EV_THINK
+		if v.q==0.0
 			v.t0=v.t
-			w=sendbid(v,player,market)
-            if w!==0
-                enc(w)
-            end
+			bidflying+=sendbid(v.i,player,market)
+			if bidflying==0
+				reply[v.i]=0
+			end
 			dt=market.bdelay+rweibull(market.blambda,market.bshape)
 			if market.twins>0.0&&v.i>T2
 				dt*=market.twins
@@ -714,22 +668,23 @@ function queueavg(player::Player,market::Market,e::Int)
 			v.t=v.t0+dt
 			enc(v)
 		else
-			receivebid(v,player,market)
-	    	if length(market.traji)>0
-                @printf(trajfp,"%g",v.t)
-                for k in market.traji
-                    myvk=player.x[k].theta(ai(k,market))
-                    myck=ci(k,player,market)
-                    @printf(trajfp," %g %g",myvk,myck)
-                end
-                @printf(trajfp,"\n"); flush(trajfp)
-            end
+			bidflying-=1
+			receivebid(v.i,player,market)
+			v.t0=v.t
+			for i=2:N
+				reply[i]=1
+			end
+		end
+		if market.Tend > 0.0 && v.t >= market.Tend
+			market.etime = market.Tend
+			break
+		end
+		if bidflying==0 && sum(reply)==0
+			market.etime=v.t0
+			break
 		end
 	end
-	if market.Tend<=0.0
-		market.etime=lastt
-	end
-	if trajfp !== nothing
+	if length(market.traji)>0
 		close(trajfp)
 	end
 	if supplyfp !== nothing
