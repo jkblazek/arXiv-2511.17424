@@ -703,7 +703,10 @@ function queueavg(player::Player,market::Market,e::Int)
 			enc(Node(v.t+market.Qdt,v.t,0,0.0,0.0,EV_SUPPLY))
 		elseif v.kind==EV_THINK
 			v.t0=v.t
-			sendbid(v,player,market)
+			w=sendbid(v,player,market)
+            if w!==0
+                enc(w)
+            end
 			dt=market.bdelay+rweibull(market.blambda,market.bshape)
 			if market.twins>0.0&&v.i>T2
 				dt*=market.twins
