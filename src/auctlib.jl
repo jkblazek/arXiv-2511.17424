@@ -535,15 +535,6 @@ function receivebid(v::Node,player::Player,market::Market)
 	if market.t0[i]<=v.t0
 		market.t0[i]=v.t0      # bid at t0 is now active
 		market.q[i]=v.q; market.p[i]=v.p
-		if length(market.traji)>0
-			@printf(trajfp,"%g",v.t)
-			for k in market.traji
-				myvk=player.x[k].theta(ai(k,market))
-				myck=ci(k,player,market)
-				@printf(trajfp," %g %g",myvk,myck)
-			end
-			@printf(trajfp,"\n"); flush(trajfp)
-		end
 	end
 end
 
@@ -603,7 +594,16 @@ function queueconv(player::Player,market::Market,e::Int)
 		else
 			bidflying-=1
 			receivebid(v,player,market)
-			v.t0=v.t
+            if length(market.traji)>0
+                @printf(trajfp,"%g",v.t)
+                for k in market.traji
+                    myvk=player.x[k].theta(ai(k,market))
+                    myck=ci(k,player,market)
+                    @printf(trajfp," %g %g",myvk,myck)
+                end
+                @printf(trajfp,"\n"); flush(trajfp)
+            end
+            v.t0=v.t
 			for i=2:N
 				reply[i]=1
 			end
@@ -712,6 +712,15 @@ function queueavg(player::Player,market::Market,e::Int)
 			enc(v)
 		else
 			receivebid(v,player,market)
+	    	if length(market.traji)>0
+                @printf(trajfp,"%g",v.t)
+                for k in market.traji
+                    myvk=player.x[k].theta(ai(k,market))
+                    myck=ci(k,player,market)
+                    @printf(trajfp," %g %g",myvk,myck)
+                end
+                @printf(trajfp,"\n"); flush(trajfp)
+            end
 		end
 	end
 	if market.Tend<=0.0
