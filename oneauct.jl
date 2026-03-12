@@ -19,6 +19,13 @@ function dowork()
 	myE=parse(Int,get(mconf,"E","100"))
 	myQ=parse(Float64,get(mconf,"Q","1000.0"))
 	myP=parse(Float64,get(mconf,"P","10.0"))
+
+	myQbase=parse(Float64,get(mconf,"Qbase",string(myQ)))
+	myQamp=parse(Float64,get(mconf,"Qamp","0.0"))
+	myQper=parse(Float64,get(mconf,"Qper","0.0"))
+	myQphase=parse(Float64,get(mconf,"Qphase","0.0"))
+	myQmin=parse(Float64,get(mconf,"Qmin","0.0"))
+	myTend=parse(Float64,get(mconf,"Tend","-1.0"))
 	mgreed=parse(Float64,get(mconf,"greed","1.0"))
 	sernash=parse(Int,get(mconf,"sernash","0"))
 	myeps=parse(Float64,get(mconf,"epsilon","5.0"))	
@@ -43,6 +50,12 @@ function dowork()
 		@printf(io,"#N=%d\n",myN)
 		@printf(io,"#E=%d\n",myE)
 		@printf(io,"#Q=%g\n",myQ)
+		@printf(io,"#Qbase=%g\n",myQbase)
+		@printf(io,"#Qamp=%g\n",myQamp)
+		@printf(io,"#Qper=%g\n",myQper)
+		@printf(io,"#Qphase=%g\n",myQphase)
+		@printf(io,"#Qmin=%g\n",myQmin)
+		@printf(io,"#Tend=%g\n",myTend)
 		@printf(io,"#P=%g\n",myP)
 		@printf(io,"#greed=%g\n",mgreed)
 		@printf(io,"#sernash=%d\n",sernash)
@@ -96,6 +109,12 @@ function dowork()
 	for e=1:myE
 		Random.seed!(mybidseed+mybidstep*e); rand(7)
 		player,market=single(playeru,myQ,mybidseed)
+		market.Qbase=myQbase
+		market.Qamp=myQamp
+		market.Qper=myQper
+		market.Qphase=myQphase
+		market.Qmin=myQmin
+		market.Tend=myTend
 		if mytwins>0
 			myN2=(myN-1)÷2
 			for i=2:myN2+1

@@ -487,126 +487,7 @@ function getbidi(i::Int,player::Player,market::Market)
 	end
 end
 
-function sendbid(i::Int,player::Player,market::Market)
-	N=length(player.x); T2=N÷2+1
-	q,p=getbidi(i,player,market)
-	if q>0 
-		market.bcount+=1
-		player.x[i].t0=v.t0  # remember the bid we sent
-		player.x[i].q=q
-		player.x[i].p=p
-		dt=market.cdelay+rweibull(market.clambda,market.cshape)
-		if market.twins>0.0&&i>T2
-			dt*=market.twins
-		end
-		ct=v.t0+dt
-		enc(Node(ct,v.t0,i,q,p))
-		return 1
-	end
-	return 0
-end
-
-function receivebid(i::Int,player::Player,market::Market)
-	if market.t0[i]<=v.t0
-		market.t0[i]=v.t0      # bid at t0 is now active
-		market.q[i]=v.q; market.p[i]=v.p
-		if length(market.traji)>0
-			@printf(trajfp,"%g",v.t)
-			for k in market.traji
-				myvk=player.x[k].theta(ai(k,market))
-				myck=ci(k,player,market)
-				@printf(trajfp," %g %g",myvk,myck)
-			end
-			@printf(trajfp,"\n"); flush(trajfp)
-		end
-	end
-end
-
 function queueconv(player::Player,market::Market,e::Int)
-	trajfp::Union{IO,Nothing}=nothing
-	if length(market.traji)>0
-		mkpath("time")
-		trajfp=open(@sprintf("time/traj%03d.dat",e),"w")
-		@printf(trajfp,"#t")
-		for k in market.traji
-			@printf(trajfp," v%d c%d",k,k)
-		end
-		@printf(trajfp,"\n"); flush(trajfp)
-	end
-	enc,deq=mkpriority()
-	N=length(player.x); T2=N÷2+1
-	d=market.blambda
-	market.bcount=0; market.mcount=0
-	bidflying=0
-	if d>0
-		for i=2:N
-			t=market.bdelay+rweibull(d,market.bshape)
-			if market.twins>0&&i>T2
-				t*=market.twins
-			end
-			enc(Node(t,0.0,i,0.0,0.0))
-		end
-	else
-		for i=2:N
-			weibull(d,market.bshape)
-			t=market.bdelay*(1.0+(i-1)/N)
-			if market.twins>0&&i>T2
-				t*=market.twins
-			end
-			enc(Node(t,0.0,i,0.0,0.0))
-		end
-	end
-	reply=ones(Int,N); reply[1]=0
-	while length(enc.heap)>0
-		v=deq()
-		if v.q==0.0
-			v.t0=v.t
-			bidflying+=sendbid(v.i,player,market)
-			if bidflying==0
-				reply[v.i]=0
-			end
-			dt=market.bdelay+rweibull(market.blambda,market.bshape)
-			if market.twins>0.0&&v.i>T2
-				dt*=market.twins
-			end
-			v.t=v.t0+dt
-			enc(v)
-		else
-			bidflying-=1
-			receivebid(v.i,player,market)
-			v.t0=v.t
-			for i=2:N
-				reply[i]=1
-			end
-		end
-		if bidflying==0 && sum(reply)==0
-			market.etime=v.t0
-			break
-		end
-	end
-	if length(market.traji)>0
-		close(trajfp)
-	end
-	return 0
-end
-
-# TODO:
-# Here we don't actually want to keep track of bidflying and
-# reply because Q is going to change, so there is no equilibrium
-# state to converge to.  So remove all of that stuff and instead
-# run over a fixed time window up to a maximum time T.  The
-# averaging will be done post processing the trajXXX.dat files
-# over the tail of the auction data.
-#
-# TODO:
-# Also create a new queue item corresponding to when the quantity
-# of resource changes in the auction, and write out the state of
-# the allocations and second prices each time either the resource
-# in the auction changes or a bid changes.  Every time a change
-# in the available is dequeued, then process it and requeue the
-# next scheduled change in resource.  All the the same queue.
-#
-function queueavg(player::Player,market::Market,e::Int)
 	trajfp::Union{IO,Nothing}=nothing
 	supplyfp::Union{IO,Nothing}=nothing
 	if length(market.traji)>0
@@ -655,12 +536,43 @@ function queueavg(player::Player,market::Market,e::Int)
 			@printf(supplyfp, "%g %g
 ", v.t, market.Q); flush(supplyfp)
 		end
-		if v.q==0.0
-			v.t0=v.t
-			bidflying+=sendbid(v.i,player,market)
+		function sendbid(i::Int)
+			q,p=getbidi(i,player,market)
+			if q>0 
+				bidflying+=1; market.bcount+=1
+				player.x[i].t0=v.t0  # remember the bid we sent
+				player.x[i].q=q
+				player.x[i].p=p
+				dt=market.cdelay+rweibull(market.clambda,market.cshape)
+				if market.twins>0.0&&i>T2
+					dt*=market.twins
+				end
+				ct=v.t0+dt
+				enc(Node(ct,v.t0,i,q,p))
+			end
 			if bidflying==0
 				reply[v.i]=0
 			end
+		end
+		function receivebid(i::Int)
+			bidflying-=1
+			if market.t0[i]<=v.t0
+				market.t0[i]=v.t0      # bid at t0 is now active
+				market.q[i]=v.q; market.p[i]=v.p
+				if length(market.traji)>0
+					@printf(trajfp,"%g",v.t)
+					for k in market.traji
+						myvk=player.x[k].theta(ai(k,market))
+						myck=ci(k,player,market)
+						@printf(trajfp," %g %g",myvk,myck)
+					end
+					@printf(trajfp,"\n"); flush(trajfp)
+				end
+			end
+		end
+		if v.q==0.0
+			v.t0=v.t
+			sendbid(v.i)
 			dt=market.bdelay+rweibull(market.blambda,market.bshape)
 			if market.twins>0.0&&v.i>T2
 				dt*=market.twins
@@ -668,8 +580,7 @@ function queueavg(player::Player,market::Market,e::Int)
 			v.t=v.t0+dt
 			enc(v)
 		else
-			bidflying-=1
-			receivebid(v.i,player,market)
+			receivebid(v.i)
 			v.t0=v.t
 			for i=2:N
 				reply[i]=1
