@@ -527,7 +527,7 @@ function sendbid(v::Node,player::Player,market::Market)
         player.x[i].t0=v.t
         return Node(ct,v.t,i,q,p,EV_BID) #t is the bid time
 	end
-	return 0
+	return nothing
 end
 
 function receivebid(v::Node,player::Player,market::Market)
@@ -578,7 +578,7 @@ function queueconv(player::Player,market::Market,e::Int)
 		if v.kind==EV_THINK
 			v.t0=v.t
             w=sendbid(v,player,market)
-            if w!==0
+            if w!==nothing
                 enc(w)
 			    bidflying+=1
             end
@@ -704,7 +704,7 @@ function queueavg(player::Player,market::Market,e::Int)
 		elseif v.kind==EV_THINK
 			v.t0=v.t
 			w=sendbid(v,player,market)
-            if w!==0
+            if w!==nothing
                 enc(w)
             end
 			dt=market.bdelay+rweibull(market.blambda,market.bshape)
