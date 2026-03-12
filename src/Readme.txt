@@ -1,6 +1,7 @@
-# arXiv-2511.17424
-The Effects of Latency on a Progressive Second-Price Auction
-------------------------------------------------------------
+Version jauction-41 is the last with the twoauct.jl code that didn't
+implement quite the correct allocations between multiple sellers but
+worked almost correctly.  Those results were not used in the thesis
+or the any paper and have been deleted for version 42.
 
 This is a list of options and default values for the oneauct.conf
 configuration file:
@@ -46,19 +47,11 @@ and buffering, whereas shape<1 implies bursty traffic with long tails.
 Oscillatory supply (non-convergent runs)
 --------------------------------------
 In oneauct.conf you can enable a time-varying total supply Q(t) by setting:
-
   Qbase  baseline supply (defaults to Q)
-
   Qamp   fractional amplitude (0 disables)
-
   Qper   period in simulation time units (0 disables)
-
   Qphase phase shift (radians)
-
   Qmin   minimum absolute clamp (optional)
-
-  Qdt sample rate
-
 When oscillation is enabled, a file time/supply###.dat is written with columns: t Q.
 
 To run for a fixed horizon instead of stopping at convergence, set:

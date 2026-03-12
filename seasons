@@ -1,0 +1,23 @@
+#!/bin/bash
+
+help(){
+    cat <<END
+Usage: $0 [options] <filename> [<filename>...]
+Options:
+    -t n    Specify number of threads to us
+END
+    exit 0
+}
+
+nproc=`nproc`
+while getopts t: opt "$@"
+do
+    case $opt in
+t)
+    nproc=$OPTARG ;;
+*)
+    help ;;
+    esac
+done
+export OPENBLAS_NUM_THREADS=$nproc
+julia -t$nproc ./src/seasons.jl "$@"
