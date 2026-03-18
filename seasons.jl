@@ -9,7 +9,7 @@ include(mydir*"util.jl")
 
 function dowork()
 	tcount=0
-	mconf=rconf("seasons.conf")
+	mconf=rconf("oneauct.conf")
 	mybuyseed=parse(Int,get(mconf,"buyseed","2137"))
 	mybidseed=parse(Int,get(mconf,"bidseed","3915"))
 	mybidstep=parse(Int,get(mconf,"bidstep","0"))
@@ -25,7 +25,6 @@ function dowork()
 	myQper=parse(Float64,get(mconf,"Qper","0.0"))
 	myQphase=parse(Float64,get(mconf,"Qphase","0.0"))
 	myQmin=parse(Float64,get(mconf,"Qmin","0.0"))
-	myQdt=parse(Float64,get(mconf,"Qdt","1.0"))
 	myTend=parse(Float64,get(mconf,"Tend","-1.0"))
 	mgreed=parse(Float64,get(mconf,"greed","1.0"))
 	sernash=parse(Int,get(mconf,"sernash","0"))
@@ -56,7 +55,6 @@ function dowork()
 		@printf(io,"#Qper=%g\n",myQper)
 		@printf(io,"#Qphase=%g\n",myQphase)
 		@printf(io,"#Qmin=%g\n",myQmin)
-		@printf(io,"#Qdt=%g\n",myQdt)
 		@printf(io,"#Tend=%g\n",myTend)
 		@printf(io,"#P=%g\n",myP)
 		@printf(io,"#greed=%g\n",mgreed)
@@ -116,7 +114,6 @@ function dowork()
 		market.Qper=myQper
 		market.Qphase=myQphase
 		market.Qmin=myQmin
-        market.Qdt=myQdt
 		market.Tend=myTend
 		if mytwins>0
 			myN2=(myN-1)÷2
@@ -132,7 +129,7 @@ function dowork()
 		market.clambda=myclambda; market.cshape=mycshape
 		market.traji=mytraji
 		Random.seed!(mycomseed+mycomstep*e); rand(7)
-		queueavg(player,market,e)
+		queueconv(player,market,e)
 		if sernash!=0
 			open("state/n_$myM.bin","w") do io
 				serialize(io,player)
