@@ -1,0 +1,22 @@
+{
+  "id": "julia-pool",
+  "vmSize": "Standard_D2s_v3",
+  "deploymentConfiguration": {
+    "virtualMachineConfiguration": {
+      "imageReference": {
+        "publisher": "microsoft-azure-batch",
+        "offer": "ubuntu-server-container",
+        "sku": "20-04-lts",
+        "version": "latest"
+      },
+      "nodeAgentSKUId": "batch.node.ubuntu 20.04"
+    }
+  },
+  "virtualMachineConfiguration": {
+    "containerConfiguration": {
+      "type": "dockerCompatible"
+    }
+  },
+  "targetDedicatedNodes": 1,
+  "targetLowPriorityNodes": 0
+}
