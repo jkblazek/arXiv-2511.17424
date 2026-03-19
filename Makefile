@@ -34,6 +34,11 @@ clean:
 
 # ===== Docker =====
 
+.PHONY: docker-run
+docker-run:
+	mkdir -p outputs
+	docker run --rm -v "$$(pwd)/outputs:/app/outputs" $(IMAGE_NAME):$(IMAGE_TAG) /bin/bash -lc 'julia -t$(NPROC) src/seasons.jl && cp -r prices.dat time state outputs/ 2>/dev/null || true'
+
 .PHONY: docker-build
 docker-build:
 	docker build -t $(IMAGE_NAME):$(IMAGE_TAG) .
