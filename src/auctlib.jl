@@ -684,12 +684,10 @@ function queueavg(player::Player,market::Market,e::Int)
 			@printf(supplyfp,"%g %g\n",0.0,market.Q); flush(supplyfp)
 		end
 	end
-	lastt=0.0
 	while length(enc.heap)>0
 		v=deq()
-		lastt=v.t
-		if market.Tend>0.0 && v.t>market.Tend
-			market.etime=market.Tend
+		if v.t>market.Tend
+			market.etime=v.t
 			break
 		end
 		if v.kind==EV_SUPPLY
@@ -715,19 +713,10 @@ function queueavg(player::Player,market::Market,e::Int)
 			enc(v)
 		else
 			receivebid(v,player,market)
-	    	if length(market.traji)>0
-                @printf(trajfp,"%g",v.t)
-                for k in market.traji
-                    myvk=player.x[k].theta(ai(k,market))
-                    myck=ci(k,player,market)
-                    @printf(trajfp," %g %g",myvk,myck)
-                end
-                @printf(trajfp,"\n"); flush(trajfp)
+	    	if trajfp != nothing
+				logstate(trajfp,v.t,player,market)
             end
 		end
-	end
-	if market.Tend<=0.0
-		market.etime=lastt
 	end
 	if trajfp !== nothing
 		close(trajfp)
