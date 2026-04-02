@@ -1,0 +1,20 @@
+{
+  "id": "run-seasons",
+  "commandLine": "/bin/bash -c '...'",
+  "containerSettings": {
+    "imageName": "jkblazek/seasons-auction:latest"
+  },
+  "outputFiles": [
+    {
+      "filePattern": "outputs/**",
+      "destination": {
+        "container": {
+          "containerUrl": "https://jauctionblob.blob.core.windows.net/results?__SAS_TOKEN__"
+        }
+      },
+      "uploadOptions": {
+        "uploadCondition": "taskCompletion"
+      }
+    }
+  ]
+}
