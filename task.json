@@ -1,6 +1,6 @@
 {
   "id": "run-seasons",
-  "commandLine": "/bin/bash -lc 'mkdir -p outputs && julia /app/seasons.jl && cp -r prices.dat time state outputs/ 2>/dev/null || true'",
+  "commandLine": "/bin/bash -c '...'",
   "containerSettings": {
     "imageName": "jkblazek/seasons-auction:latest"
   },
@@ -9,7 +9,7 @@
       "filePattern": "outputs/**",
       "destination": {
         "container": {
-          "containerUrl": "https://jauctionblob.blob.core.windows.net/results?<SAS_TOKEN>"
+          "containerUrl": "https://jauctionblob.blob.core.windows.net/results?"
         }
       },
       "uploadOptions": {
