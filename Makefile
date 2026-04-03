@@ -29,12 +29,12 @@ OUT_DIR := outputs/$(shell date +"%Y-%m-%d_%H-%M-%S")__$(shell \
         task-show task-files \
         nuke
 
-out-dir:
+tag:
 	echo $(TASK_ID) > TASK_ID
 	echo $(OUT_DIR) > OUT_DIR
-	mkdir -p $(OUT_DIR)
 
-run-local: out-dir
+run-local: 
+	mkdir -p $(OUT_DIR)
 	julia -t$(NPROC) src/seasons.jl
 	mv prices.dat time state $(OUT_DIR)/ 2>/dev/null || true
 	cp seasons.conf $(OUT_DIR)
@@ -42,10 +42,10 @@ run-local: out-dir
 clean:
 	rm -rf outputs
 
-docker-build: out-dir
+docker-build: tag
 	docker build -t $(IMAGE_NAME):$(IMAGE_TAG) .
 
-docker-run: out-dir docker-build
+docker-run: docker-build
 	mkdir -p outputs
 	docker run --rm \
 		-e OUT_DIR="$(OUT_DIR)" \
@@ -78,7 +78,7 @@ pool:
 job:
 	az batch job create --json-file job.json
 
-task-json: out-dir
+task-json: tag
 	python3 -c 'from pathlib import Path; url = Path("SAS_URL").read_text().strip(); template = Path("task.template.json").read_text(); Path("task.json").write_text(template.replace("__SAS_URL__", url))'
 	python3 -c 'from pathlib import Path; outdir = Path("OUT_DIR").read_text().strip(); template = Path("task.json").read_text(); Path("task.json").write_text(template.replace("__OUT_DIR__", outdir))'
 	
@@ -106,4 +106,4 @@ nuke: delete-task delete-job delete-pool
 
 submit: pool job task
 
-run-remote: make-remote az-login blob-create submit
+run-remote: az-login blob-create submit
