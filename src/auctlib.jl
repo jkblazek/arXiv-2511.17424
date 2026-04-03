@@ -647,11 +647,11 @@ function queueavg(player::Player,market::Market,e::Int)
 		end
 		@printf(trajfp,"\n"); flush(trajfp)
 	end
-	if market.Qdt>0.0
-		mkpath("time")
-		supplyfp=open(@sprintf("time/supply%03d.dat",e),"w")
-		@printf(supplyfp,"#t Q\n"); flush(supplyfp)
-	end
+	#if market.Qdt>0.0
+#		mkpath("time")
+#		supplyfp=open(@sprintf("time/supply%03d.dat",e),"w")
+#		@printf(supplyfp,"#t Q\n"); flush(supplyfp)
+#	end
 	enc,deq=mkpriority()
 	N=length(player.x); T2=N÷2+1
 	d=market.blambda
