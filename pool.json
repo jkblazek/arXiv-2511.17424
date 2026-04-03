@@ -1,18 +1,14 @@
 {
   "id": "julia-pool",
   "vmSize": "Standard_D2s_v3",
-  "deploymentConfiguration": {
-    "virtualMachineConfiguration": {
-      "imageReference": {
-        "publisher": "microsoft-azure-batch",
-        "offer": "ubuntu-server-container",
-        "sku": "20-04-lts",
-        "version": "latest"
-      },
-      "nodeAgentSKUId": "batch.node.ubuntu 20.04"
-    }
-  },
   "virtualMachineConfiguration": {
+    "imageReference": {
+      "publisher": "microsoft-dsvm",
+      "offer": "ubuntu-hpc",
+      "sku": "2204",
+      "version": "latest"
+    },
+    "nodeAgentSKUId": "batch.node.ubuntu 22.04",
     "containerConfiguration": {
       "type": "dockerCompatible"
     }

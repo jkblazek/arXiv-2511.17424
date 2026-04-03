@@ -18,45 +18,41 @@ JOB_ID  := julia-job
 TASK_ID := run-seasons
 
 SAS_TOKEN := $(shell cat SAS_TOKEN 2>/dev/null)
-CONTAINER_URL = https://jauctionblob.blob.core.windows.net/results?sv=$(SAS_TOKEN)
+CONTAINER_URL = https://jauctionblob.blob.core.windows.net/results?$(SAS_TOKEN)
+SAS_URL := $(shell cat SAS_URL 2>/dev/null)
+OUT_DIR := outputs/$(shell date +"%Y-%m-%d_%H-%M-%S")__$(shell \
+	grep -E '^(N|eps|lambda|seed)=' seasons.conf | \
+	tr '\n' '_' | sed 's/_$$//' | sed 's/_/__/g')
 
+.PHONY: run-local clean \
+		make-remote run-remote \
+        task-show task-files \
+        nuke
 
-run:
-	ts=$(date +"%Y-%m-%d_%H-%M-%S")
-	tag=$(grep -E '^(N|eps|lambda|seed)=' seasons.conf | tr '\n' '_' | sed 's/_$//' | sed 's/_/__/g')
-	outdir=outputs/$${ts}__$${tag}
-	mkdir -p "$outdir"
+out-dir:
+	echo $(OUT_DIR) > OUT_DIR
+	mkdir -p $(OUT_DIR)
 
+run-local: out-dir
 	julia -t$(NPROC) src/seasons.jl
-	mv prices.dat time state "$outdir"/ 2>/dev/null || true
-	cp seasons.conf "$outdir"
+	mv prices.dat time state $(OUT_DIR)/ 2>/dev/null || true
+	cp seasons.conf $(OUT_DIR)
 
 clean:
 	rm -rf outputs
 
-save:
-	ts=$(date +"%Y-%m-%d_%H-%M-%S")
-	outdir="../$ts"
-	mkdir -p "$outdir"
-	mv outputs "$outdir"
-
-
-docker: docker-build docker-tag docker-push docker-run
-
 docker-build:
 	docker build -t $(IMAGE_NAME):$(IMAGE_TAG) .
 
-docker-run:
-	mkdir -p outputs
+docker-run: out-dir
 	docker run --rm \
 		-v "$$(pwd)/outputs:/app/outputs" \
 		$(IMAGE_NAME):$(IMAGE_TAG) \
-		/bin/bash -c 'ts=$$(date +"%Y-%m-%d_%H-%M-%S"); \
-		tag=$$(grep -E "^(N|eps|lambda|seed)=" seasons.conf | tr "\n" "_" | sed "s/_$$//" | sed "s/_/__/g"); \
-		outdir=outputs/$${ts}__$${tag}; \
+		/bin/bash -c 'outdir=$$(cat OUT_DIR);\
 		mkdir -p "$$outdir"; \
 		julia -t$(NPROC) src/seasons.jl; \
 		cp -r prices.dat time state "$$outdir"/ 2>/dev/null || true'
+	cp seasons.conf $(OUT_DIR)
 
 docker-tag:
 	docker tag $(IMAGE_NAME):$(IMAGE_TAG) $(IMAGE)
@@ -73,7 +69,7 @@ blob-create:
 	az storage container create \
 		--account-name $(STORAGE_ACCOUNT) \
 		--name $(BLOB_CONTAINER) \
-		--auth-mode login
+		--auth-mode login 
 
 pool:
 	az batch pool create --json-file pool.json
@@ -81,16 +77,18 @@ pool:
 job:
 	az batch job create --json-file job.json
 
-task-json:
-	sed "s|__SAS_TOKEN__|$(SAS_TOKEN)|g" task.template.json > task.json
+task-json: out-dir
+	python3 -c 'from pathlib import Path; url = Path("SAS_URL").read_text().strip(); template = Path("task.template.json").read_text(); Path("task.json").write_text(template.replace("__SAS_URL__", url))'
+	python3 -c 'from pathlib import Path; outdir = Path("OUT_DIR").read_text().strip(); template = Path("task.json").read_text(); Path("task.json").write_text(template.replace("__OUT_DIR__", outdir))'
 
 task: task-json
 	az batch task create --job-id $(JOB_ID) --json-file task.json
 
-task:
-	az batch task create --job-id $(JOB_ID) --json-file task.json
-
 submit: pool job task
+
+make-remote: docker-build docker-tag docker-push
+
+run-remote: make-remote az-login blob-create submit
 
 task-show:
 	az batch task show --job-id $(JOB_ID) --task-id $(TASK_ID)
