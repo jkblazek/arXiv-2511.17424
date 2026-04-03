@@ -1,7 +1,3 @@
-Version jauction-41 is the last with the twoauct.jl code that didn't
-implement quite the correct allocations between multiple sellers but
-worked almost correctly.  Those results were not used in the thesis
-or the any paper and have been deleted for version 42.
 
 This is a list of options and default values for the oneauct.conf
 configuration file:
@@ -52,7 +48,6 @@ In oneauct.conf you can enable a time-varying total supply Q(t) by setting:
   Qper   period in simulation time units (0 disables)
   Qphase phase shift (radians)
   Qmin   minimum absolute clamp (optional)
-When oscillation is enabled, a file time/supply###.dat is written with columns: t Q.
 
 To run for a fixed horizon instead of stopping at convergence, set:
   Tend   time horizon (<=0 keeps the original convergence stopping rule)

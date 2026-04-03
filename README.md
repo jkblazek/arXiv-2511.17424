@@ -2,64 +2,167 @@
 The Effects of Latency on a Progressive Second-Price Auction
 ------------------------------------------------------------
 
-This is a list of options and default values for the oneauct.conf
-configuration file:
+Got it — here’s a **clean GitHub-ready `README.md`** (Markdown, concise, no noise, copy-paste ready):
 
-seed -- Defaults to 2137 and is used to construct the price
-valuation curves of the buyers.
+---
 
-jseed -- Defaults to 3915 and is used to construct the ensembles
-through jitter, delay and initial bid.
+# PSP Seasons Simulation
 
-N -- Defaults to 100 and is the number of buyers in the auction.
+Julia-based simulation pipeline with support for:
 
-E -- Defaults to 100 and represents the size of the ensemble.
+* Local execution
+* Dockerized runs
+* Distributed execution via Azure Batch
 
-Q -- Defaults to 1000.0 and represents the amount of resource that
-is available over each time period in the auction.
+Designed for reproducible experiments with structured outputs and parameter tracking.
 
-greed -- Defaults to 1.0.  Larger values result in greedy players
-with a high valuation of the resource.  Smaller values result in
-generous players who don't care enough to.
+---
 
-sernash -- Defaults to 0.  If zero do nothing.  If non-zero write 
-out all the Nash equilibriums in a file.  It is planned to make a
-program that checks the Nash equilibrium later.
+## Project Structure
 
-epsilon -- Defaults to 5.0.  This is the bid price.
+```
+.
+├── src/
+│   └── seasons.jl
+├── seasons.conf
+├── outputs/
+├── Dockerfile
+├── Makefile
+├── pool.json
+├── job.json
+├── task.template.json
+├── SAS_TOKEN         # (not committed)
+```
 
-period -- Defaults to 1.  How often the buyers check to update their
-bids.
+---
 
-jitter -- Defaults to 0.5.  The actual times that a specific buyer
-check their bids is period+jitter*(U-1)  where U is a uniform 
-random variable on the unit interval.
+## Output Format
 
-delay -- Defaults to 0.0.  Delay in bid message communication.
+Each run produces:
 
-lambda -- Defaults to 1.0  Amplitude in "message communication.
+```
+outputs/<timestamp>__<params>/
+```
 
-shape -- Defaults to 1.0.  Shape parameter shape>1 is traffic shapping
-and buffering, whereas shape<1 implies bursty traffic with long tails.
+Example:
 
+```
+outputs/2026-04-03_11-21-02__N=100__eps=5__lambda=0.25__seed=42/
+```
 
-Oscillatory supply (non-convergent runs)
---------------------------------------
-In oneauct.conf you can enable a time-varying total supply Q(t) by setting:
+Contents:
 
-  Qbase  baseline supply (defaults to Q)
+* `prices.dat`
+* `time`
+* `state`
+* `seasons.conf`
 
-  Qamp   fractional amplitude (0 disables)
+---
 
-  Qper   period in simulation time units (0 disables)
+## Local Run
 
-  Qphase phase shift (radians)
+```
+make run
+```
 
-  Qmin   minimum absolute clamp (optional)
+---
 
-  Qdt sample rate
+## Docker Run
 
-When oscillation is enabled, a file time/supply###.dat is written with columns: t Q.
+Build and run:
 
-To run for a fixed horizon instead of stopping at convergence, set:
-  Tend   time horizon (<=0 keeps the original convergence stopping rule)
+```
+make docker-build
+make docker-run
+```
+
+Outputs are written to the local `outputs/` directory.
+
+---
+
+## Azure Batch Run
+
+### 1. Login
+
+```
+make az-login
+```
+
+---
+
+### 2. Create storage container
+
+```
+make blob-create
+```
+
+---
+
+### 3. Add SAS token
+
+Create a file:
+
+```
+SAS_TOKEN
+```
+
+Containing only:
+
+```
+sp=...&st=...&se=...&sig=...
+```
+
+Must include write permissions.
+
+---
+
+### 4. Submit job
+
+```
+make submit
+```
+
+---
+
+### 5. Monitor
+
+```
+make task-show
+make task-files
+```
+
+---
+
+### 6. Retrieve results
+
+Outputs are uploaded to:
+
+```
+results/runs/<job>/<task>/
+```
+
+---
+
+## Notes
+
+* Task IDs must be unique within a job
+* Job IDs must be unique within the Batch account
+* Output paths are structured to avoid collisions
+* Uses containerized execution for consistency
+
+---
+
+## Cleanup
+
+```
+make nuke
+```
+
+---
+
+## Summary
+
+* Same code runs locally, in Docker, and on Azure Batch
+* Outputs are reproducible and parameterized
+* Minimal setup for scaling experiments
+

@@ -1,0 +1,21 @@
+{
+  "id": "__TASK_ID__",
+  "commandLine": "/bin/bash -c mkdir -p __OUT_DIR__ && julia /app/src/seasons.jl && cp -r prices.dat time state __OUT_DIR__'",
+  "containerSettings": {
+    "imageName": "jkblazek/seasons-auction:latest"
+  },
+  "outputFiles": [
+    {
+      "filePattern": "outputs/**",
+      "destination": {
+        "container": {
+          "containerUrl": "__SAS_URL__",
+          "path": "runs/julia-job/__OUT_DIR__"
+        }
+      },
+      "uploadOptions": {
+        "uploadCondition": "taskCompletion"
+      }
+    }
+  ]
+}
