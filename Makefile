@@ -20,7 +20,7 @@ TASK_ID := run-seasons-$(shell date +"%Y-%m-%d_%H-%M-%S")
 SAS_TOKEN := $(shell cat SAS_TOKEN 2>/dev/null)
 CONTAINER_URL = https://jauctionblob.blob.core.windows.net/results?$(SAS_TOKEN)
 SAS_URL := $(shell cat SAS_URL 2>/dev/null)
-OUT_DIR := outputs/$(shell date +"%Y-%m-%d_%H-%M-%S")__$(shell \
+OUT_DIR := $(shell date +"%Y-%m-%d_%H-%M-%S")__$(shell \
 	grep -E '^(N|eps|lambda|seed)=' seasons.conf | \
 	tr '\n' '_' | sed 's/_$$//' | sed 's/_/__/g')
 
@@ -34,24 +34,24 @@ tag:
 	echo $(OUT_DIR) > OUT_DIR
 
 run-local: 
-	mkdir -p $(OUT_DIR)
+	mkdir -p outputs/$(OUT_DIR)
 	julia -t$(NPROC) src/seasons.jl
-	mv prices.dat time state $(OUT_DIR)/ 2>/dev/null || true
-	cp seasons.conf $(OUT_DIR)
+	mv prices.dat time state outputs/$(OUT_DIR)/ 2>/dev/null || true
+	cp seasons.conf outputs/$(OUT_DIR)
 
 clean:
 	rm -rf outputs
 
-docker-build: tag
+docker-build: 
 	docker build -t $(IMAGE_NAME):$(IMAGE_TAG) .
 
-docker-run: docker-build
+docker-run: 
 	mkdir -p outputs
 	docker run --rm \
 		-e OUT_DIR="$(OUT_DIR)" \
 		-v "$$(pwd)/outputs:/app/outputs" \
 		$(IMAGE_NAME):$(IMAGE_TAG) \
-		/bin/bash -c 'mkdir -p "$$OUT_DIR"; cp seasons.conf "$$OUT_DIR"; julia -t$(NPROC) src/seasons.jl; cp -r prices.dat time state "$$OUT_DIR"/ 2>/dev/null || true'
+		/bin/bash -c 'mkdir -p outputs/"$$OUT_DIR"; cp seasons.conf outputs/"$$OUT_DIR"; julia -t$(NPROC) src/seasons.jl; cp -r prices.dat time state outputs/"$$OUT_DIR"/ 2>/dev/null || true'
 
 docker-tag:
 	docker tag $(IMAGE_NAME):$(IMAGE_TAG) $(IMAGE)
@@ -89,6 +89,9 @@ task: task-json
 
 task-show:
 	az batch task show --job-id $(JOB_ID) --task-id $(shell cat TASK_ID 2>/dev/null)
+
+task-list:
+	az batch task list --job-id julia-job
 
 task-files:
 	az batch task file list --job-id $(JOB_ID) --task-id $(shell cat TASK_ID 2>/dev/null)
