@@ -619,15 +619,8 @@ function queueconv(player::Player,market::Market,e::Int)
 	return 0
 end
 
-# TODO:
-# Here we don't actually want to keep track of bidflying and
-# reply because Q is going to change, so there is no equilibrium
-# state to converge to.  So remove all of that stuff and instead
-# run over a fixed time window up to a maximum time T.  The
-# averaging will be done post processing the trajXXX.dat files
-# over the tail of the auction data.
 #
-# TODO:
+# TODO #2:
 # Also create a new queue item corresponding to when the quantity
 # of resource changes in the auction, and write out the state of
 # the allocations and second prices each time either the resource
@@ -637,7 +630,6 @@ end
 #
 function queueavg(player::Player,market::Market,e::Int)
 	trajfp::Union{IO,Nothing}=nothing
-	supplyfp::Union{IO,Nothing}=nothing
 	if length(market.traji)>0
 		mkpath("time")
 		trajfp=open(@sprintf("time/traj%03d.dat",e),"w")
@@ -647,11 +639,6 @@ function queueavg(player::Player,market::Market,e::Int)
 		end
 		@printf(trajfp,"\n"); flush(trajfp)
 	end
-	#if market.Qdt>0.0
-#		mkpath("time")
-#		supplyfp=open(@sprintf("time/supply%03d.dat",e),"w")
-#		@printf(supplyfp,"#t Q\n"); flush(supplyfp)
-#	end
 	enc,deq=mkpriority()
 	N=length(player.x); T2=N÷2+1
 	d=market.blambda
@@ -680,9 +667,6 @@ function queueavg(player::Player,market::Market,e::Int)
 		if trajfp !== nothing
 			logstate(trajfp,0.0,player,market)
 		end
-		if supplyfp !== nothing
-			@printf(supplyfp,"%g %g\n",0.0,market.Q); flush(supplyfp)
-		end
 	end
 	while length(enc.heap)>0
 		v=deq()
@@ -692,9 +676,6 @@ function queueavg(player::Player,market::Market,e::Int)
 		end
 		if v.kind==EV_SUPPLY
 			update_supply!(player,market,v.t)
-			if supplyfp !== nothing
-				@printf(supplyfp,"%g %g\n",v.t,market.Q); flush(supplyfp)
-			end
 			if trajfp !== nothing
 				logstate(trajfp,v.t,player,market)
 			end
@@ -720,9 +701,6 @@ function queueavg(player::Player,market::Market,e::Int)
 	end
 	if trajfp !== nothing
 		close(trajfp)
-	end
-	if supplyfp !== nothing
-		close(supplyfp)
 	end
 	return 0
 end
