@@ -2,19 +2,108 @@
 The Effects of Latency on a Progressive Second-Price Auction
 ------------------------------------------------------------
 
-Got it — here’s a **clean GitHub-ready `README.md`** (Markdown, concise, no noise, copy-paste ready):
+
+This repository contains the simulation framework used in:
+
+https://arxiv.org/abs/2511.17424
+
+It implements a dynamic, networked auction model based on the **Progressive Second Price (PSP)** mechanism, with a focus on **asynchronous updates, latency, and market stability**.
 
 ---
 
-# PSP Seasons Simulation
+## Overview
 
-Julia-based simulation pipeline with support for:
+Modern decentralized markets operate under **partial information and communication delays**.
+This project studies how **latency influences convergence, price formation, and allocation dynamics** in PSP auctions.
 
-* Local execution
-* Dockerized runs
-* Distributed execution via Azure Batch
+The simulation models:
 
-Designed for reproducible experiments with structured outputs and parameter tracking.
+* Buyers and sellers as interacting agents
+* Iterative bid updates under PSP rules
+* Asynchronous execution with delay (latency)
+* Market evolution over time
+
+---
+
+## Key Concepts
+
+### Progressive Second Price (PSP)
+
+PSP is an extension of second-price auctions to distributed settings:
+
+* Buyers submit bids across multiple sellers
+* Allocation evolves iteratively
+* Prices reflect **externality (exclusion–compensation)** rather than direct bids
+* Truthfulness emerges through **ε-best responses**
+
+---
+
+### Latency
+
+Latency is modeled as:
+
+* Delayed bid updates
+* Asynchronous arrival of information
+* Non-synchronized agent behavior
+
+This introduces:
+
+* transient instability
+* delayed convergence
+* oscillatory or phase-shifted price dynamics
+
+---
+
+### Networked Market Structure
+
+The market is a **bipartite graph**:
+
+* Buyers ↔ Sellers
+* Shared sellers induce **buyer–buyer influence**
+* Market behavior propagates through connectivity
+
+---
+
+## What This Code Does
+
+The simulation:
+
+* evolves a PSP auction over time
+* tracks allocation and price dynamics
+* outputs time-series data for analysis
+
+## Research Context
+
+This code supports analysis of:
+
+* convergence under asynchronous updates
+* impact of latency on equilibrium behavior
+* propagation of influence through network structure
+* stability vs. oscillation in distributed auctions
+
+The broader framework connects:
+
+* auction theory
+* game theory
+* network dynamics
+* distributed systems
+
+---
+
+## Notes
+
+* Azure tasks must have unique IDs
+* SAS tokens must include write permissions
+* Outputs are written to task-local storage and uploaded post-run
+
+---
+
+## Future Work
+
+* multi-task parameter sweeps (parallel experiments)
+* latency distribution modeling (e.g., Weibull)
+* visualization pipeline (price variance, convergence metrics)
+* integration with network topology experiments
 
 ---
 
