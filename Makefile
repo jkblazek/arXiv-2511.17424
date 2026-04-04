@@ -51,7 +51,7 @@ docker-run:
 		-e OUT_DIR="$(OUT_DIR)" \
 		-v "$$(pwd)/outputs:/app/outputs" \
 		$(IMAGE_NAME):$(IMAGE_TAG) \
-		/bin/bash -c 'mkdir -p outputs/"$$OUT_DIR"; cp seasons.conf outputs/"$$OUT_DIR"; julia -t$(NPROC) src/seasons.jl; cp -r prices.dat time state outputs/"$$OUT_DIR"/ 2>/dev/null || true'
+		/bin/bash -c 'mkdir -p outputs/"$$OUT_DIR"; cp seasons.conf outputs/"$$OUT_DIR"; julia -t$(NPROC) src/seasons.jl; mv prices.dat time state outputs/"$$OUT_DIR"/ 2>/dev/null || true'
 
 docker-tag:
 	docker tag $(IMAGE_NAME):$(IMAGE_TAG) $(IMAGE)

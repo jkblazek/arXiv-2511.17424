@@ -1,6 +1,6 @@
 {
   "id": "__TASK_ID__",
-    "commandLine": "/bin/bash -c 'cd \"$AZ_BATCH_TASK_WORKING_DIR\" && cp /app/seasons.conf . && mkdir -p outputs/__OUT_DIR__ && julia /app/src/seasons.jl && cp -r prices.dat time state outputs/__OUT_DIR__/ 2>/dev/null || true'",
+    "commandLine": "/bin/bash -c 'cd \"$AZ_BATCH_TASK_WORKING_DIR\" && cp /app/seasons.conf . && mkdir -p outputs/__OUT_DIR__ && julia /app/src/seasons.jl && mv prices.dat time state outputs/__OUT_DIR__/ 2>/dev/null || true'",
   "containerSettings": {
     "imageName": "jkblazek/seasons-auction:latest"
   },

@@ -24,7 +24,7 @@
 # for rich entering a poor market might reflect current
 # pricing when they entered.
 
-using Printf, Serialization, Random
+using Printf, Random
 
 function mktheta(scale::Float64=1.0,
 		kappa::Float64=0.0,barq::Float64=0.0)
@@ -108,6 +108,9 @@ mutable struct Player
 		for i=2:N
 			xr[i]=Buyer(scale)
 		end
+		return new(xr)
+	end
+	function Player(xr::Array{Buyer})
 		return new(xr)
 	end
 end
@@ -628,7 +631,8 @@ end
 # in the available is dequeued, then process it and requeue the
 # next scheduled change in resource.  All the the same queue.
 #
-function queueavg(player::Player,market::Market,e::Int)
+function queueavg(player::Player,market::Market,e::Int,
+		phasefp::Union{IO,Nothing}=nothing)
 	trajfp::Union{IO,Nothing}=nothing
 	if length(market.traji)>0
 		mkpath("time")
@@ -668,6 +672,7 @@ function queueavg(player::Player,market::Market,e::Int)
 			logstate(trajfp,0.0,player,market)
 		end
 	end
+	phase_cycle=0   # counts completed supply oscillation cycles
 	while length(enc.heap)>0
 		v=deq()
 		if v.t>market.Tend
@@ -678,6 +683,14 @@ function queueavg(player::Player,market::Market,e::Int)
 			update_supply!(player,market,v.t)
 			if trajfp !== nothing
 				logstate(trajfp,v.t,player,market)
+			end
+			# phase snapshot: record at each integer multiple of Qper
+			if phasefp !== nothing && market.Qper > 0.0
+				new_cycle=floor(Int, v.t / market.Qper)
+				if new_cycle > phase_cycle
+					phase_cycle=new_cycle
+					log_phase(phasefp, phase_cycle, v.t, player, market)
+				end
 			end
 			enc(Node(v.t+market.Qdt,v.t,0,0.0,0.0,EV_SUPPLY))
 		elseif v.kind==EV_THINK
@@ -703,6 +716,65 @@ function queueavg(player::Player,market::Market,e::Int)
 		close(trajfp)
 	end
 	return 0
+end
+
+# Save buyer population parameters (barq, kappa per buyer).
+# Reserve buyer i=1 is skipped — it is always reconstructed analytically.
+function save_playeru(path::String, player::Player)
+	open(path,"w") do io
+		N=length(player.x)
+		@printf(io,"#i barq kappa\n")
+		for i=2:N
+			@printf(io,"%d %g %g\n",
+				i, player.x[i].theta.barql, player.x[i].theta.kappal)
+		end
+	end
+end
+
+# Load buyer population from a .dat file written by save_playeru.
+# myP is the reserve price used to reconstruct buyer i=1.
+function load_playeru(path::String, myP::Float64, scale::Float64=1.0)::Player
+	lines=readlines(path)
+	rows=filter(l->length(l)>0 && l[1]!='#', lines)
+	N=length(rows)+1   # +1 for reserve buyer
+	xr=Array{Buyer}(undef,N+1)
+	xr[1]=Buyer(z->z*myP, z->myP, z->NaN, Inf)
+	for row in rows
+		parts=split(row)
+		i=parse(Int,parts[1])
+		barq=parse(Float64,parts[2])
+		kappa=parse(Float64,parts[3])
+		t,dt,dti=mktheta(scale,kappa,barq)
+		xr[i]=Buyer(t,dt,dti,Inf)
+	end
+	return Player(xr)
+end
+
+# Save converged Nash state: bid (q,p) and allocation a for all buyers.
+# Used by oneauct.jl and freelunch.jl after queueconv.
+function save_nash(path::String, e::Int, player::Player, market::Market)
+	open(path,"w") do io
+		N=length(market.q)
+		@printf(io,"#e=%d etime=%g\n", e, market.etime)
+		@printf(io,"#i q p a\n")
+		for i=1:N
+			@printf(io,"%d %g %g %g\n",
+				i, market.q[i], market.p[i], ai(i,market))
+		end
+	end
+end
+
+# Append one phase-aligned snapshot to an open file.
+# Called at each integer multiple of Qper in queueavg.
+function log_phase(io::IO, cycle::Int, t::Float64,
+		player::Player, market::Market)
+	N=length(market.q)
+	for i=1:N
+		mya=ai(i,market)
+		@printf(io,"%d %g %g %d %g %g %g\n",
+			cycle, t, market.Q, i, market.q[i], market.p[i], mya)
+	end
+	flush(io)
 end
 
 function randbids(player::Player,market::Market)

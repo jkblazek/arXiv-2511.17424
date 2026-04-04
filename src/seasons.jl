@@ -100,7 +100,7 @@ function dowork()
 		end
 	end
 	mkpath("state")
-	serialize("state/playeru.bin",playeru)
+	save_playeru("state/playeru.dat", playeru)
 	palcavg=zeros(Float64,myN); palcvar=zeros(Float64,myN)
 	pvalavg=zeros(Float64,myN); pvalvar=zeros(Float64,myN)
 	pcstavg=zeros(Float64,myN); pcstvar=zeros(Float64,myN)
@@ -132,12 +132,15 @@ function dowork()
 		market.clambda=myclambda; market.cshape=mycshape
 		market.traji=mytraji
 		Random.seed!(mycomseed+mycomstep*e); rand(7)
-		queueavg(player,market,e)
-		if sernash!=0
-			open("state/n_$myM.bin","w") do io
-				serialize(io,player)
-				serialize(io,market)
-			end
+		phasefp::Union{IO,Nothing}=nothing
+		if market.Qper>0.0
+			mkpath("state")
+			phasefp=open(@sprintf("state/phase_%03d.dat",e),"w")
+			@printf(phasefp,"#cycle t Q i q p a\n"); flush(phasefp)
+		end
+		queueavg(player,market,e,phasefp)
+		if phasefp !== nothing
+			close(phasefp)
 		end
 		for i=1:myN
 			mai=ai(i,market)
