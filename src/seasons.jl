@@ -19,7 +19,6 @@ function dowork()
 	myE=parse(Int,get(mconf,"E","100"))
 	myQ=parse(Float64,get(mconf,"Q","1000.0"))
 	myP=parse(Float64,get(mconf,"P","10.0"))
-
 	myQbase=parse(Float64,get(mconf,"Qbase",string(myQ)))
 	myQamp=parse(Float64,get(mconf,"Qamp","0.0"))
 	myQper=parse(Float64,get(mconf,"Qper","0.0"))
@@ -28,8 +27,7 @@ function dowork()
 	myQdt=parse(Float64,get(mconf,"Qdt","1.0"))
 	myTend=parse(Float64,get(mconf,"Tend","-1.0"))
 	mgreed=parse(Float64,get(mconf,"greed","1.0"))
-	sernash=parse(Int,get(mconf,"sernash","0"))
-	myeps=parse(Float64,get(mconf,"epsilon","5.0"))	
+	myeps=parse(Float64,get(mconf,"epsilon","5.0"))
 	mybdelay=parse(Float64,get(mconf,"bdelay","1.0"))
 	myblambda=parse(Float64,get(mconf,"blambda","0.25"))
 	mybshape=parse(Float64,get(mconf,"bshape","1.5"))
@@ -37,11 +35,6 @@ function dowork()
 	myclambda=parse(Float64,get(mconf,"clambda","1.0"))
 	mycshape=parse(Float64,get(mconf,"cshape","0.75"))
 	mytwins=parse(Float64,get(mconf,"twins","0.0"))
-	mytrajis=split(get(mconf,"traji",""),",")
-	mytraji=zeros(Int,0)
-	if mytrajis[1]!=""
-		mytraji=parse.(Int,mytrajis)
-	end
 	function prparam(io::IO=Base.stdout)
 		@printf(io,"#buyseed=%d\n",mybuyseed)
 		@printf(io,"#bidseed=%d\n",mybidseed)
@@ -60,7 +53,6 @@ function dowork()
 		@printf(io,"#Tend=%g\n",myTend)
 		@printf(io,"#P=%g\n",myP)
 		@printf(io,"#greed=%g\n",mgreed)
-		@printf(io,"#sernash=%d\n",sernash)
 		@printf(io,"#epsilon=%g\n",myeps)
 		@printf(io,"#bdelay=%g\n",mybdelay)
 		@printf(io,"#blambda=%g\n",myblambda)
@@ -69,24 +61,11 @@ function dowork()
 		@printf(io,"#clambda=%g\n",myclambda)
 		@printf(io,"#cshape=%g\n",mycshape)
 		@printf(io,"#twins=%g\n",mytwins)
-		@printf(io,"#traji=%s\n",string(mytraji))
 		@printf(io,"#\n")
 		flush(io)
 	end
-	fp=open("prices.dat","w")
-	prparam(); prparam(fp)
-	function prheader(io::IO=Base.stdout)
-		@printf(io,"#%s %s %s %s %s %s %s %s %s %s\n",
-		"e","pavg","pstd","vtot","ctot","utot","az",
-		"etime","mcount","bcount")
-		flush(io)
-	end
-	prheader(); prheader(fp)
 	Random.seed!(mybuyseed)
 	playeru=Player(mgreed,myN+1)
-	function rtheta(z::Float64)
-		return z*myP
-	end
 	playeru.x[1]=Buyer(z->z*myP,z->myP,z->NaN,Inf)
 	myN+=1  # add the reserve buyer
 	if mytwins>0
@@ -101,22 +80,17 @@ function dowork()
 	end
 	mkpath("state")
 	save_playeru("state/playeru.dat", playeru)
-	palcavg=zeros(Float64,myN); palcvar=zeros(Float64,myN)
-	pvalavg=zeros(Float64,myN); pvalvar=zeros(Float64,myN)
-	pcstavg=zeros(Float64,myN); pcstvar=zeros(Float64,myN)
-	putlavg=zeros(Float64,myN); putlvar=zeros(Float64,myN)
-	ptavg=0.0; ptvar=0.0; vtavg=0.0; vtvar=0.0
-	ctavg=0.0; ctvar=0.0; utavg=0.0; utvar=0.0
-	etavg=0.0; etvar=0.0; bcavg=0.0; bcvar=0.0
+
+	# --- simulation loop ---
+	etimes=zeros(Float64,myE)
+	mcounts=zeros(Int,myE)
+	bcounts=zeros(Int,myE)
 	for e=1:myE
 		Random.seed!(mybidseed+mybidstep*e); rand(7)
 		player,market=single(playeru,myQ,mybidseed)
-		market.Qbase=myQbase
-		market.Qamp=myQamp
-		market.Qper=myQper
-		market.Qphase=myQphase
-		market.Qmin=myQmin
-        market.Qdt=myQdt
+		market.Qbase=myQbase; market.Qamp=myQamp
+		market.Qper=myQper; market.Qphase=myQphase
+		market.Qmin=myQmin; market.Qdt=myQdt
 		market.Tend=myTend
 		if mytwins>0
 			myN2=(myN-1)÷2
@@ -130,69 +104,71 @@ function dowork()
 		market.blambda=myblambda; market.bshape=mybshape
 		market.cdelay=mycdelay
 		market.clambda=myclambda; market.cshape=mycshape
-		market.traji=mytraji
+		market.traji=collect(1:myN)
 		Random.seed!(mycomseed+mycomstep*e); rand(7)
 		phasefp::Union{IO,Nothing}=nothing
 		if market.Qper>0.0
-			mkpath("state")
 			phasefp=open(@sprintf("state/phase_%03d.dat",e),"w")
 			@printf(phasefp,"#cycle t Q i q p a\n"); flush(phasefp)
 		end
 		queueavg(player,market,e,phasefp)
-		if phasefp !== nothing
-			close(phasefp)
-		end
-		for i=1:myN
-			mai=ai(i,market)
-			mvi=player.x[i].theta(mai)
-			mci=ci(i,player,market)
-			mui=mvi-mci
-			palcavg[i]+=mai; palcvar[i]+=mai*mai
-			pvalavg[i]+=mvi; pvalvar[i]+=mvi*mvi
-			pcstavg[i]+=mci; pcstvar[i]+=mci*mci
-			putlavg[i]+=mui; putlvar[i]+=mui*mui
-		end
-		pavg,pvar,vtot,ctot,az=statmarket(player,market)
-		utot=vtot-ctot
-		function prstat(io::IO=Base.stdout)
-			@printf(io,"%d %g %g %g %g %g %d %g %d %d\n",
-			e,pavg,sqrt(pvar),vtot,ctot,utot,az,
-			market.etime,market.mcount,market.bcount)
-			flush(io)
-		end
-		prstat(); prstat(fp)
+		if phasefp !== nothing; close(phasefp); end
+		etimes[e]=market.etime
+		mcounts[e]=market.mcount
+		bcounts[e]=market.bcount
 		tcount+=market.mcount
-		ptavg+=pavg; ptvar+=pavg*pavg
-		vtavg+=vtot; vtvar+=vtot*vtot
-		ctavg+=ctot; ctvar+=ctot*ctot
-		utavg+=utot; utvar+=utot*utot
-		etavg+=market.etime; etvar+=market.etime^2
-		bcavg+=market.bcount; bcvar+=Float64(market.bcount)^2
+	end
+
+	# --- post-processing: time-weighted averages from traj files ---
+	palcavg=zeros(Float64,myN); palcvar=zeros(Float64,myN)
+	pvalavg=zeros(Float64,myN); pvalvar=zeros(Float64,myN)
+	pcstavg=zeros(Float64,myN); pcstvar=zeros(Float64,myN)
+	putlavg=zeros(Float64,myN); putlvar=zeros(Float64,myN)
+	ptavg=0.0; ptvar=0.0; vtavg=0.0; vtvar=0.0
+	ctavg=0.0; ctvar=0.0; utavg=0.0; utvar=0.0
+	etavg=0.0; etvar=0.0; bcavg=0.0; bcvar=0.0
+	fp=open("prices.dat","w")
+	prparam(); prparam(fp)
+	@printf(fp,"#%s %s %s %s %s %s %s %s %s %s\n",
+		"e","pavg","pstd","vtot","ctot","utot","az","etime","mcount","bcount")
+	for e=1:myE
+		tvec,Qvec,data=load_traj(@sprintf("time/traj%03d.dat",e))
+		pavg,pvar,a_avg,v_avg,c_avg,u_avg,az=traj_timeavg(tvec,Qvec,data,playeru)
+		vtot=sum(v_avg); ctot=sum(c_avg); utot=vtot-ctot
+		for i=1:myN
+			palcavg[i]+=a_avg[i]; palcvar[i]+=a_avg[i]^2
+			pvalavg[i]+=v_avg[i]; pvalvar[i]+=v_avg[i]^2
+			pcstavg[i]+=c_avg[i]; pcstvar[i]+=c_avg[i]^2
+			putlavg[i]+=u_avg[i]; putlvar[i]+=u_avg[i]^2
+		end
+		@printf(fp,"%d %g %g %g %g %g %d %g %d %d\n",
+			e,pavg,sqrt(pvar),vtot,ctot,utot,az,
+			etimes[e],mcounts[e],bcounts[e])
+		flush(fp)
+		ptavg+=pavg; ptvar+=pavg^2
+		vtavg+=vtot; vtvar+=vtot^2
+		ctavg+=ctot; ctvar+=ctot^2
+		utavg+=utot; utvar+=utot^2
+		etavg+=etimes[e]; etvar+=etimes[e]^2
+		bcavg+=bcounts[e]; bcvar+=Float64(bcounts[e])^2
 	end
 	ptavg/=myE; vtavg/=myE; ctavg/=myE; utavg/=myE
 	etavg/=myE; bcavg/=myE
-	ptvar=abs((ptvar-ptavg*ptavg*myE)/(myE-1))
-	vtvar=abs((vtvar-vtavg*vtavg*myE)/(myE-1))
-	ctvar=abs((ctvar-ctavg*ctavg*myE)/(myE-1))
-	utvar=abs((utvar-utavg*utavg*myE)/(myE-1))
-	etvar=abs((etvar-etavg*etavg*myE)/(myE-1))
-	bcvar=abs((bcvar-bcavg*bcavg*myE)/(myE-1))
-	function prfinal(io::IO=Base.stdout)
-		@printf(io,"\n\n#%s %s %s %s %s %s %s %s %s %s %s %s\n",
-			"ptavg","ptstd","vtavg","vtstd",
-			"ctavg","ctstd","utavg","utstd",
-			"etavg","etstd","bcavg","bcstd")
-		@printf(io,"%g %g %g %g %g %g %g %g %g %g %g %g\n",
-			ptavg,sqrt(ptvar),vtavg,sqrt(vtvar),
-			ctavg,sqrt(ctvar),utavg,sqrt(utvar),
-			etavg,sqrt(etvar),bcavg,sqrt(bcvar))
-	end
-	prfinal(); prfinal(fp)
-	function prstath(io::IO=Base.stdout)
-		@printf(io,"\n\n#%s %s %s %s %s %s %s %s %s\n",
-			"i","<ai>","std","<vi>","std","<ci>","std","<ui>","std")
-	end
-	prstath(); prstath(fp)
+	ptvar=abs((ptvar-ptavg^2*myE)/(myE-1))
+	vtvar=abs((vtvar-vtavg^2*myE)/(myE-1))
+	ctvar=abs((ctvar-ctavg^2*myE)/(myE-1))
+	utvar=abs((utvar-utavg^2*myE)/(myE-1))
+	etvar=abs((etvar-etavg^2*myE)/(myE-1))
+	bcvar=abs((bcvar-bcavg^2*myE)/(myE-1))
+	@printf(fp,"\n\n#%s %s %s %s %s %s %s %s %s %s %s %s\n",
+		"ptavg","ptstd","vtavg","vtstd","ctavg","ctstd",
+		"utavg","utstd","etavg","etstd","bcavg","bcstd")
+	@printf(fp,"%g %g %g %g %g %g %g %g %g %g %g %g\n",
+		ptavg,sqrt(ptvar),vtavg,sqrt(vtvar),
+		ctavg,sqrt(ctvar),utavg,sqrt(utvar),
+		etavg,sqrt(etvar),bcavg,sqrt(bcvar))
+	@printf(fp,"\n\n#%s %s %s %s %s %s %s %s %s\n",
+		"i","<ai>","std","<vi>","std","<ci>","std","<ui>","std")
 	for i=1:myN
 		palcavg[i]/=myE; pvalavg[i]/=myE
 		pcstavg[i]/=myE; putlavg[i]/=myE
@@ -200,14 +176,11 @@ function dowork()
 		pvalvar[i]=abs((pvalvar[i]-pvalavg[i]^2*myE)/(myE-1))
 		pcstvar[i]=abs((pcstvar[i]-pcstavg[i]^2*myE)/(myE-1))
 		putlvar[i]=abs((putlvar[i]-putlavg[i]^2*myE)/(myE-1))
-		function prpstat(io::IO=Base.stdout)
-			@printf(io,"%d %g %g %g %g %g %g %g %g\n",
-				i,palcavg[i],sqrt(palcvar[i]),
-				pvalavg[i],sqrt(pvalvar[i]),
-				pcstavg[i],sqrt(pcstvar[i]),
-				putlavg[i],sqrt(putlvar[i]))
-		end
-		prpstat(); prpstat(fp)
+		@printf(fp,"%d %g %g %g %g %g %g %g %g\n",
+			i,palcavg[i],sqrt(palcvar[i]),
+			pvalavg[i],sqrt(pvalvar[i]),
+			pcstavg[i],sqrt(pcstvar[i]),
+			putlavg[i],sqrt(putlvar[i]))
 	end
 	close(fp)
 	return tcount

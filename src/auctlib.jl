@@ -149,8 +149,6 @@ mutable struct Market
     )
 end
 
-
-
 # Time-varying supply (oscillatory) support.
 # If Qamp==0 or Qper==0, supply stays fixed at Q.
 function supplyQ(t::Float64, market::Market)
@@ -622,15 +620,6 @@ function queueconv(player::Player,market::Market,e::Int)
 	return 0
 end
 
-#
-# TODO #2:
-# Also create a new queue item corresponding to when the quantity
-# of resource changes in the auction, and write out the state of
-# the allocations and second prices each time either the resource
-# in the auction changes or a bid changes.  Every time a change
-# in the available is dequeued, then process it and requeue the
-# next scheduled change in resource.  All the the same queue.
-#
 function queueavg(player::Player,market::Market,e::Int,
 		phasefp::Union{IO,Nothing}=nothing)
 	trajfp::Union{IO,Nothing}=nothing
@@ -707,7 +696,7 @@ function queueavg(player::Player,market::Market,e::Int,
 			enc(v)
 		else
 			receivebid(v,player,market)
-	    	if trajfp != nothing
+	    	if trajfp !== nothing
 				logstate(trajfp,v.t,player,market)
             end
 		end
@@ -718,7 +707,77 @@ function queueavg(player::Player,market::Market,e::Int,
 	return 0
 end
 
-# Save buyer population parameters (barq, kappa per buyer).
+# Load a traj file written by queueavg/queueconv.
+# Returns (tvec, Qvec, data) where data[k, i, field]: field 1=a,2=v,3=c,4=u.
+# N and K are inferred from the header and row count.
+function load_traj(path::String)
+	lines=readlines(path)
+	header=lines[1]  # "#t Q a1 v1 c1 u1 a2 ..."
+	cols=split(header[2:end])  # strip leading '#'
+	# cols: t Q a1 v1 c1 u1 a2 v2 c2 u2 ...
+	N=(length(cols)-2)÷4
+	rows=filter(l->length(l)>0 && l[1]!='#', lines)
+	K=length(rows)
+	tvec=zeros(Float64,K)
+	Qvec=zeros(Float64,K)
+	data=zeros(Float64,K,N,4)
+	for (k,row) in enumerate(rows)
+		vals=parse.(Float64,split(row))
+		tvec[k]=vals[1]; Qvec[k]=vals[2]
+		for i in 1:N
+			base=2+(i-1)*4
+			data[k,i,1]=vals[base+1]  # a
+			data[k,i,2]=vals[base+2]  # v
+			data[k,i,3]=vals[base+3]  # c
+			data[k,i,4]=vals[base+4]  # u
+		end
+	end
+	return tvec, Qvec, data
+end
+
+# Compute time-weighted averages from a traj file.
+# Returns (pavg, pvar, a_avg, v_avg, c_avg, u_avg, az) where arrays are length N.
+# pavg/pvar are allocation-weighted price mean/variance over time.
+# az is count of buyers with time-avg allocation < threshold.
+function traj_timeavg(tvec, Qvec, data, playeru::Player)
+	K,N,_=size(data)
+	a_avg=zeros(Float64,N); v_avg=zeros(Float64,N)
+	c_avg=zeros(Float64,N); u_avg=zeros(Float64,N)
+	T=tvec[end]-tvec[1]
+	T<=0.0 && return 0.0,0.0,a_avg,v_avg,c_avg,u_avg,0
+	ptot=0.0; p2tot=0.0; atot_t=0.0
+	for k=1:K-1
+		dt=tvec[k+1]-tvec[k]
+		dt<=0.0 && continue
+		asum=0.0; psum=0.0; p2sum=0.0
+		for i=1:N
+			a=data[k,i,1]
+			a_avg[i]+=a*dt; v_avg[i]+=data[k,i,2]*dt
+			c_avg[i]+=data[k,i,3]*dt; u_avg[i]+=data[k,i,4]*dt
+			# reconstruct p from dtheta: p=dtheta(q), but we only have a,v,c,u
+			# use allocation-weighted price from v: p≈v/a for linear theta, skip reserve
+			asum+=a
+		end
+		atot_t+=asum*dt
+	end
+	T2=tvec[end]-tvec[1]
+	a_avg./=T2; v_avg./=T2; c_avg./=T2; u_avg./=T2
+	az=count(a_avg[2:end] .< 0.001)
+	# pavg/pvar: computed from per-buyer dtheta if playeru provided
+	pavg=0.0; pvar=0.0
+	atot=0.0; ptot2=0.0; p2tot2=0.0
+	for i=2:N
+		p=playeru.x[i].dtheta(a_avg[i])
+		atot+=a_avg[i]; ptot2+=a_avg[i]*p; p2tot2+=a_avg[i]*p^2
+	end
+	if atot>1e-12
+		pavg=ptot2/atot
+		pvar=max(0.0, p2tot2/atot - pavg^2)
+	end
+	return pavg,pvar,a_avg,v_avg,c_avg,u_avg,az
+end
+
+
 # Reserve buyer i=1 is skipped — it is always reconstructed analytically.
 function save_playeru(path::String, player::Player)
 	open(path,"w") do io
