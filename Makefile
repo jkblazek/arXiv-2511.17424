@@ -104,22 +104,22 @@ task-json: tag-task
 	python3 -c 'from pathlib import Path; jobid = Path("JOB_ID").read_text().strip(); template = Path("task.json").read_text(); Path("task.json").write_text(template.replace("__JOB_ID__", jobid))'
 
 task: task-json
-	az batch task create --job-id $(JOB_ID) --json-file task.json
+	az batch task create --job-id $(shell cat JOB_ID 2>/dev/null) --json-file task.json
 
 task-show:
-	az batch task show --job-id $(JOB_ID) --task-id $(shell cat TASK_ID 2>/dev/null)
+	az batch task show --job-id $(shell cat JOB_ID 2>/dev/null) --task-id $(shell cat TASK_ID 2>/dev/null)
 
 task-list:
 	az batch task list --job-id julia-job
 
 task-files:
-	az batch task file list --job-id $(JOB_ID) --task-id $(shell cat TASK_ID 2>/dev/null)
+	az batch task file list --job-id $(shell cat JOB_ID 2>/dev/null) --task-id $(shell cat TASK_ID 2>/dev/null)
 
 delete-task:
-	-az batch task delete --job-id $(JOB_ID) --task-id $(shell cat TASK_ID 2>/dev/null) --yes
+	-az batch task delete --job-id $(shell cat JOB_ID 2>/dev/null) --task-id $(shell cat TASK_ID 2>/dev/null) --yes
 
 delete-job:
-	-az batch job delete --job-id $(JOB_ID) --yes
+	-az batch job delete --job-id $(shell cat JOB_ID 2>/dev/null) --yes
 
 delete-pool:
 	-az batch pool delete --pool-id $(POOL_ID) --yes
