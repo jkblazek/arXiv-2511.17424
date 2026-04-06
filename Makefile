@@ -14,7 +14,7 @@ STORAGE_ACCOUNT := jauctionblob
 BLOB_CONTAINER  := results
 
 POOL_ID := julia-pool
-JOB_ID  := julia-job
+JOB_ID  := julia-job-$(shell date +"%Y-%m-%d_%H-%M")
 TASK_ID := run-seasons-$(shell date +"%Y-%m-%d_%H-%M-%S")
 
 SAS_TOKEN := $(shell cat SAS_TOKEN 2>/dev/null)
@@ -24,16 +24,30 @@ OUT_DIR := $(shell date +"%Y-%m-%d_%H-%M-%S")__$(shell \
 	grep -E '^(N|eps|lambda|seed)=' seasons.conf | \
 	tr '\n' '_' | sed 's/_$$//' | sed 's/_/__/g')
 
-.PHONY: run-local clean \
+.PHONY: clean \
 		make-remote run-remote \
         task-show task-files \
+		freelunch oneauct seasons \
         nuke
 
 tag:
+	echo $(JOB_ID) > JOB_ID
 	echo $(TASK_ID) > TASK_ID
 	echo $(OUT_DIR) > OUT_DIR
 
-run-local: 
+oneauct: 
+	mkdir -p outputs/$(OUT_DIR)
+	julia -t$(NPROC) src/oneauct.jl
+	mv prices.dat time state outputs/$(OUT_DIR)/ 2>/dev/null || true
+	cp oneauct.conf outputs/$(OUT_DIR)
+
+freelunch: 
+	mkdir -p outputs/$(OUT_DIR)
+	julia -t$(NPROC) src/freelunch.jl
+	mv prices.dat time state outputs/$(OUT_DIR)/ 2>/dev/null || true
+	cp seasons.conf outputs/$(OUT_DIR)
+
+seasons: 
 	mkdir -p outputs/$(OUT_DIR)
 	julia -t$(NPROC) src/seasons.jl
 	mv prices.dat time state outputs/$(OUT_DIR)/ 2>/dev/null || true
@@ -82,7 +96,11 @@ task-json: tag
 	python3 -c 'from pathlib import Path; url = Path("SAS_URL").read_text().strip(); template = Path("task.template.json").read_text(); Path("task.json").write_text(template.replace("__SAS_URL__", url))'
 	python3 -c 'from pathlib import Path; outdir = Path("OUT_DIR").read_text().strip(); template = Path("task.json").read_text(); Path("task.json").write_text(template.replace("__OUT_DIR__", outdir))'
 	
-	python3 -c 'from pathlib import Path; id = Path("TASK_ID").read_text().strip(); template = Path("task.json").read_text(); Path("task.json").write_text(template.replace("__TASK_ID__", id))'
+	python3 -c 'from pathlib import Path; taskid = Path("TASK_ID").read_text().strip(); template = Path("task.json").read_text(); Path("task.json").write_text(template.replace("__TASK_ID__", taskid))'
+	
+	python3 -c 'from pathlib import Path; jobid = Path("JOB_ID").read_text().strip(); template = Path("task.json").read_text(); Path("task.json").write_text(template.replace("__JOB_ID__", jobid))'
+	
+	python3 -c 'from pathlib import Path; jobid = Path("JOB_ID").read_text().strip(); template = Path("job.template.json").read_text(); Path("job.json").write_text(template.replace("__JOB_ID__", jobid))'
 
 task: task-json
 	az batch task create --job-id $(JOB_ID) --json-file task.json

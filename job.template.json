@@ -1,5 +1,5 @@
 {
-  "id": "julia-job",
+  "id": "__JOB_ID__",
   "poolInfo": {
     "poolId": "julia-pool"
   }

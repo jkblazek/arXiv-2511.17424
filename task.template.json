@@ -10,7 +10,7 @@
       "destination": {
         "container": {
           "containerUrl": "__SAS_URL__",
-          "path": "runs/julia-job/__TASK_ID__"
+          "path": "runs/__JOB_ID__/__TASK_ID__"
         }
       },
       "uploadOptions": {

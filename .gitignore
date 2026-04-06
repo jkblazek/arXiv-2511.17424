@@ -1,5 +1,20 @@
 SAS_TOKEN
 SAS_URL
 outputs
-*.swp
 task.json
+
+# Vim swap files
+*.swp
+*.swo
+
+# Julia
+.DS_Store
+__site
+node_modules/
+package-lock.json
+.__py_*
+*~
+
+# OS
+.DS_Store
+Thumbs.db
