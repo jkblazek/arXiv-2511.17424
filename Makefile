@@ -30,10 +30,12 @@ OUT_DIR := $(shell date +"%Y-%m-%d_%H-%M-%S")__$(shell \
 		freelunch oneauct seasons \
         nuke
 
-tag:
-	echo $(JOB_ID) > JOB_ID
+tag-task:
 	echo $(TASK_ID) > TASK_ID
 	echo $(OUT_DIR) > OUT_DIR
+	
+tag-job:
+	echo $(JOB_ID) > JOB_ID
 
 oneauct: 
 	mkdir -p outputs/$(OUT_DIR)
@@ -89,18 +91,17 @@ blob-create:
 pool:
 	az batch pool create --json-file pool.json
 
-job:
+job-json: tag-job
+	python3 -c 'from pathlib import Path; jobid = Path("JOB_ID").read_text().strip(); template = Path("job.template.json").read_text(); Path("job.json").write_text(template.replace("__JOB_ID__", jobid))'
+
+job: job-json
 	az batch job create --json-file job.json
 
-task-json: tag
+task-json: tag-task
 	python3 -c 'from pathlib import Path; url = Path("SAS_URL").read_text().strip(); template = Path("task.template.json").read_text(); Path("task.json").write_text(template.replace("__SAS_URL__", url))'
 	python3 -c 'from pathlib import Path; outdir = Path("OUT_DIR").read_text().strip(); template = Path("task.json").read_text(); Path("task.json").write_text(template.replace("__OUT_DIR__", outdir))'
-	
 	python3 -c 'from pathlib import Path; taskid = Path("TASK_ID").read_text().strip(); template = Path("task.json").read_text(); Path("task.json").write_text(template.replace("__TASK_ID__", taskid))'
-	
 	python3 -c 'from pathlib import Path; jobid = Path("JOB_ID").read_text().strip(); template = Path("task.json").read_text(); Path("task.json").write_text(template.replace("__JOB_ID__", jobid))'
-	
-	python3 -c 'from pathlib import Path; jobid = Path("JOB_ID").read_text().strip(); template = Path("job.template.json").read_text(); Path("job.json").write_text(template.replace("__JOB_ID__", jobid))'
 
 task: task-json
 	az batch task create --job-id $(JOB_ID) --json-file task.json
