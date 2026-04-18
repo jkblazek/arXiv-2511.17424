@@ -17,9 +17,8 @@ POOL_ID := julia-pool
 JOB_ID  := julia-job-$(shell date +"%Y-%m-%d_%H-%M")
 TASK_ID := run-seasons-$(shell date +"%Y-%m-%d_%H-%M-%S")
 
-SAS_TOKEN := $(shell cat SAS_TOKEN 2>/dev/null)
-CONTAINER_URL = https://jauctionblob.blob.core.windows.net/results?$(SAS_TOKEN)
-SAS_URL := $(shell cat SAS_URL 2>/dev/null)
+SAS_TOKEN := $(shell cat az/SAS_TOKEN 2>/dev/null)
+SAS_URL := $(shell cat az/SAS_URL 2>/dev/null)
 OUT_DIR := $(shell date +"%Y-%m-%d_%H-%M-%S")__$(shell \
 	grep -E '^(N|eps|lambda|seed)=' seasons.conf | \
 	tr '\n' '_' | sed 's/_$$//' | sed 's/_/__/g')
@@ -31,11 +30,11 @@ OUT_DIR := $(shell date +"%Y-%m-%d_%H-%M-%S")__$(shell \
         nuke
 
 tag-task:
-	echo $(TASK_ID) > TASK_ID
-	echo $(OUT_DIR) > OUT_DIR
+	echo $(TASK_ID) > az/TASK_ID
+	echo $(OUT_DIR) > az/OUT_DIR
 	
 tag-job:
-	echo $(JOB_ID) > JOB_ID
+	echo $(JOB_ID) > az/JOB_ID
 
 oneauct: 
 	mkdir -p outputs/$(OUT_DIR)
@@ -89,37 +88,37 @@ blob-create:
 		--auth-mode login 
 
 pool:
-	az batch pool create --json-file pool.json
+	az batch pool create --json-file az/pool.json
 
 job-json: tag-job
-	python3 -c 'from pathlib import Path; jobid = Path("JOB_ID").read_text().strip(); template = Path("job.template.json").read_text(); Path("job.json").write_text(template.replace("__JOB_ID__", jobid))'
+	python3 -c 'from pathlib import Path; jobid = Path("az/JOB_ID").read_text().strip(); template = Path("az/job.template.json").read_text(); Path("az/job.json").write_text(template.replace("__JOB_ID__", jobid))'
 
 job: job-json
-	az batch job create --json-file job.json
+	az batch job create --json-file az/job.json
 
 task-json: tag-task
-	python3 -c 'from pathlib import Path; url = Path("SAS_URL").read_text().strip(); template = Path("task.template.json").read_text(); Path("task.json").write_text(template.replace("__SAS_URL__", url))'
-	python3 -c 'from pathlib import Path; outdir = Path("OUT_DIR").read_text().strip(); template = Path("task.json").read_text(); Path("task.json").write_text(template.replace("__OUT_DIR__", outdir))'
-	python3 -c 'from pathlib import Path; taskid = Path("TASK_ID").read_text().strip(); template = Path("task.json").read_text(); Path("task.json").write_text(template.replace("__TASK_ID__", taskid))'
-	python3 -c 'from pathlib import Path; jobid = Path("JOB_ID").read_text().strip(); template = Path("task.json").read_text(); Path("task.json").write_text(template.replace("__JOB_ID__", jobid))'
+	python3 -c 'from pathlib import Path; url = Path("az/SAS_URL").read_text().strip(); template = Path("az/task.template.json").read_text(); Path("az/task.json").write_text(template.replace("__SAS_URL__", url))'
+	python3 -c 'from pathlib import Path; outdir = Path("az/OUT_DIR").read_text().strip(); template = Path("az/task.json").read_text(); Path("az/task.json").write_text(template.replace("__OUT_DIR__", outdir))'
+	python3 -c 'from pathlib import Path; taskid = Path("az/TASK_ID").read_text().strip(); template = Path("az/task.json").read_text(); Path("az/task.json").write_text(template.replace("__TASK_ID__", taskid))'
+	python3 -c 'from pathlib import Path; jobid = Path("az/JOB_ID").read_text().strip(); template = Path("az/task.json").read_text(); Path("az/task.json").write_text(template.replace("__JOB_ID__", jobid))'
 
 task: task-json
-	az batch task create --job-id $(shell cat JOB_ID 2>/dev/null) --json-file task.json
+	az batch task create --job-id $(shell cat az/JOB_ID 2>/dev/null) --json-file az/task.json
 
 task-show:
-	az batch task show --job-id $(shell cat JOB_ID 2>/dev/null) --task-id $(shell cat TASK_ID 2>/dev/null)
+	az batch task show --job-id $(shell cat az/JOB_ID 2>/dev/null) --task-id $(shell cat az/TASK_ID 2>/dev/null)
 
 task-list:
-	az batch task list --job-id julia-job
+	az batch task list --job-id $(shell cat az/JOB_ID 2>/dev/null) 
 
 task-files:
-	az batch task file list --job-id $(shell cat JOB_ID 2>/dev/null) --task-id $(shell cat TASK_ID 2>/dev/null)
+	az batch task file list --job-id $(shell cat az/JOB_ID 2>/dev/null) --task-id $(shell cat az/TASK_ID 2>/dev/null)
 
 delete-task:
-	-az batch task delete --job-id $(shell cat JOB_ID 2>/dev/null) --task-id $(shell cat TASK_ID 2>/dev/null) --yes
+	-az batch task delete --job-id $(shell cat az/JOB_ID 2>/dev/null) --task-id $(shell cat az/TASK_ID 2>/dev/null) --yes
 
 delete-job:
-	-az batch job delete --job-id $(shell cat JOB_ID 2>/dev/null) --yes
+	-az batch job delete --job-id $(shell cat az/JOB_ID 2>/dev/null) --yes
 
 delete-pool:
 	-az batch pool delete --pool-id $(POOL_ID) --yes

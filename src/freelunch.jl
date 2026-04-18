@@ -5,6 +5,9 @@ end
 
 mydir=@__DIR__; mydir=mydir*"/"
 include(mydir*"auctlib.jl")
+include(mydir*"auctio.jl")
+include(mydir*"auctstat.jl")
+include(mydir*"auctqueue.jl")
 include(mydir*"util.jl")
 
 function dowork()
