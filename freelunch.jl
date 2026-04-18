@@ -64,7 +64,7 @@ function dowork()
 	end
 	playeru.x[1]=Buyer(z->z*myP,z->myP,z->NaN,Inf)
 	mkpath("state")
-	save_playeru("state/playeru.dat", playeru)
+	serialize("state/playeru.bin",playeru)
 	palcavg=zeros(Float64,myN); palcvar=zeros(Float64,myN)
 	pvalavg=zeros(Float64,myN); pvalvar=zeros(Float64,myN)
 	pcstavg=zeros(Float64,myN); pcstvar=zeros(Float64,myN)
@@ -85,7 +85,10 @@ function dowork()
 			gubaround(player,market) # compromise bids everyone
 		end	
 		if sernash!=0
-			save_nash(@sprintf("state/n_%03d.dat",e), e, player, market)
+			open("state/n_$myM.bin","w") do io
+				serialize(io,player)
+				serialize(io,market)
+			end
 		end
 		for i=1:myN
 			mai=ai(i,market)

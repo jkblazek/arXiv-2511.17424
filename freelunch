@@ -20,4 +20,4 @@ t)
     esac
 done
 export OPENBLAS_NUM_THREADS=$nproc
-julia -t$nproc ./src/freelunch.jl "$@"
+julia -t$nproc $HOME/lib/jauction/freelunch.jl "$@"

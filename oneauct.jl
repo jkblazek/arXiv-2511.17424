@@ -85,7 +85,7 @@ function dowork()
 		end
 	end
 	mkpath("state")
-	save_playeru("state/playeru.dat", playeru)
+	serialize("state/playeru.bin",playeru)
 	palcavg=zeros(Float64,myN); palcvar=zeros(Float64,myN)
 	pvalavg=zeros(Float64,myN); pvalvar=zeros(Float64,myN)
 	pcstavg=zeros(Float64,myN); pcstvar=zeros(Float64,myN)
@@ -112,7 +112,10 @@ function dowork()
 		Random.seed!(mycomseed+mycomstep*e); rand(7)
 		queueconv(player,market,e)
 		if sernash!=0
-			save_nash(@sprintf("state/n_%03d.dat",e), e, player, market)
+			open("state/n_$myM.bin","w") do io
+				serialize(io,player)
+				serialize(io,market)
+			end
 		end
 		for i=1:myN
 			mai=ai(i,market)
