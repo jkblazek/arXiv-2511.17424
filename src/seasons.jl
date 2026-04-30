@@ -109,7 +109,7 @@ end
 function main()
 	tcount=0
 	tsec=@elapsed try
-		println("One Auction Progressive Second Price Market Version 40\n")
+		println("One Auction Progressive Second Price Market Version 45\n")
 		tcount=dowork()
 		throw(DoExit())
 	catch r
