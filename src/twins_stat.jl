@@ -36,8 +36,6 @@ function dotwins(conf::String, outdir::String=".")
 		return
 	end
 
-	playeru=load_playeru(joinpath(outdir,"state/playeru.dat"), myP, mgreed)
-
 	# u_avg[e, i] = time-avg utility for buyer i in run e
 	# only for buyers in mytraji
 	u_runs=Dict(i => zeros(Float64, myE) for i in mytraji)
