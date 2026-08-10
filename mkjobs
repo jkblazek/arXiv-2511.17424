@@ -1,0 +1,54 @@
+#!/bin/bash
+# The following is where the source code is
+INSTALL=/home/jblazek/Code/seasons/src
+
+k=1
+myper=400.0
+while test `echo "$myper>=10.0" | bc -l` -eq 1
+do
+	mydt=`echo "$myper/40" | bc -l`
+
+mkdir run$k
+cat <<EOF >run$k/seasons.conf
+buyseed=2742605649
+bidseed=192837
+bidstep=1
+comseed=106426
+comstep=11
+N=100
+E=1
+Q=1000.0
+P=12.0
+greed=1.0
+epsilon=5.0
+bdelay=1.0
+blambda=0.25
+bshape=1.5
+cdelay=0.1
+clambda=1.0
+cshape=0.75
+twins=17.0
+Qbase=1000.0
+Qamp=0.25
+Qper=$myper
+Qphase=0.0
+Qmin=50.0
+Qdt=$mydt
+Tend=4400.0
+Tburnin=400.0
+traji=1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63,64,65,66,67,68,69,70,71,72,73,74,75,76,77,78,79,80,81,82,83,84,85,86,87,88,89,90,91,92,93,94,95,96,97,98,99,100,101
+EOF
+
+cat <<EOF >run$k/run.slm
+#!/bin/bash
+#SBATCH -J run$k
+#SBATCH -D `pwd`/run$k
+#SBATCH -n 1
+#SBATCH -c 1
+#SBATCH --mem=1GB
+julia -t2 $INSTALL/seasons.jl
+EOF
+
+	myper=`echo "$myper/2" | bc -l`
+	let k=k+1
+done

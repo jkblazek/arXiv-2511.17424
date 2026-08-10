@@ -59,7 +59,8 @@ function dotwins(conf::String, outdir::String=".", mode::String="run=1")
         return
     end
     tvec,Qvec,buyers,data=load_traj(path)
-    avg,_,dev=traj_timeavg(tvec,Qvec,buyers,data,myQper)
+#    avg,_,dev=traj_timeavg(tvec,Qvec,buyers,data,myQper)
+    avg,_,dev=traj_timeavg(tvec,Qvec,buyers,data,400.0)
     for i in mytraji
         u_mean[i]=haskey(avg,i) ? avg[i][4] : 0.0
         u_dev[i] =haskey(dev,i) ? dev[i]    : 0.0
